@@ -6,6 +6,6 @@ docker compose build
 docker run --rm -it ss-cloak-cloak -key
 docker run --rm -it ss-cloak-cloak -uid
 docker rmi ss-cloak-cloak # this image had default password values
-# write this values to docker-compose.env
+# write generated key and uid to docker-compose.env
 docker compose --env-file=docker-compose.env up -d
 ```
