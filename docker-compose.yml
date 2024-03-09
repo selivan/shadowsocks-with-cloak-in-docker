@@ -1,0 +1,70 @@
+version: "3.8"
+name: ss-cloak
+
+x-common-logging: &common-logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: 2
+
+services:
+  # https://github.com/shadowsocks/shadowsocks-libev/blob/master/docker/alpine/README.md
+  shadowsocks:
+    image: shadowsocks/shadowsocks-libev:latest
+    restart: always
+    # Expose ports without publishing them to the host machine
+    # They’ll only be accessible to linked services
+    expose:
+      - "8388"
+      - "8388/udp"
+    environment:
+      METHOD: "chacha20-ietf-poly1305"
+      PASSWORD: "${SS_PASSWORD}"
+      # PASSWORD_FILE: /somefile
+      TIMEOUT: 300
+      DNS_ADDRS: "${SS_DNS_ADDRS}"
+      TZ: "UTC"
+    logging: *common-logging
+  cloak:
+    # entrypoint: [ "/bin/sh", "-c", "cat /opt/ck-server.json; /opt/ck-server -c /opt/ck-server.json" ]
+    command: [ "-c", "/opt/ck-server.json" ]
+    build: ./cloak
+    restart: always
+    depends_on:
+      - shadowsocks
+    ports:
+      - "443:443/tcp"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    configs:
+      - source: ck_server_json
+        target: /opt/ck-server.json
+        mode: "0644"
+    logging: *common-logging
+
+configs:
+  ck_server_json:
+    #file: ./ck-server.json
+    content: |
+      {
+        "ProxyBook": {
+          "shadowsocks": [
+          "tcp",
+          "shadowsocks:8388"
+          ],
+          "ssh": [
+          "tcp",
+          "host.docker.internal:22"
+          ]
+        },
+        "BindAddr": [
+          ":443"        ],
+        "BypassUID": [
+          "${CLOAK_BYPASS_UID}"
+        ],
+        "RedirAddr": "${CLOAK_REDIR_ADDR}",
+        "PrivateKey": "${CLOAK_PRIVATE_KEY}",
+        "AdminUID": "",
+        "DatabasePath": "userinfo.db",
+        "KeepAlive": 60
+      }
